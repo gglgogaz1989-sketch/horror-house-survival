@@ -1,0 +1,32 @@
+name: Build Android APK
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential libffi-dev libltdl-dev autoconf automake libtool pkg-config zlib1g-dev
+        pip install buildozer cython==0.29.33 sh
+
+    - name: Build with Buildozer
+      run: |
+        yes | buildozer -v android debug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: my-game-apk
+        path: bin/*.apk
+        
