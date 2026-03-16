@@ -3,52 +3,69 @@ from ursina.prefabs.first_person_controller import FirstPersonController
 
 app = Ursina()
 
-# --- ОКРУЖЕНИЕ ---
-# Пол
-ground = Entity(model='plane', collider='box', scale=64, texture='white_cube', texture_scale=(64,64), color=color.gray)
+# --- НАСТРОЙКИ ---
+window.fps_counter.enabled = False
+window.exit_button.enabled = False
 
-# Простая комната (стены)
-wall_1 = Entity(model='cube', collider='box', position=(0, 2.5, 5), scale=(10, 5, 0.1), color=color.dark_gray)
-wall_2 = Entity(model='cube', collider='box', position=(0, 2.5, -5), scale=(10, 5, 0.1), color=color.dark_gray)
-wall_3 = Entity(model='cube', collider='box', position=(5, 2.5, 0), scale=(0.1, 5, 10), color=color.dark_gray)
-wall_4 = Entity(model='cube', collider='box', position=(-5, 2.5, 0), scale=(0.1, 5, 10), color=color.dark_gray)
-
-# --- ИГРОК И ФОНАРИК ---
+# --- ИГРОК ---
 player = FirstPersonController(model='cube', z=-2, origin_y=-.5, speed=5)
-player.cursor.visible = False
+player.cursor.visible = True # Оставим курсор для прицеливания во взаимодействия
 
-# Фонарик (привязан к камере игрока)
-flashlight = Spotlight(parent=camera, world_max_depth=15, color=color.light_gray)
+# --- ФОНАРИК ---
+flashlight = Spotlight(parent=camera, world_max_depth=20, color=color.light_gray)
 flashlight.enabled = True
 
-# --- СИСТЕМА ВРЕМЕНИ ---
-time_text = Text(text='00:00', position=(0.7, 0.45), scale=2, color=color.yellow)
-game_minutes = 0
-game_hours = 0
+# --- ВЗАИМОДЕЙСТВИЕ ---
+interact_text = Text(text='', origin=(0,0), y=-0.1, scale=1.5, color=color.yellow)
 
+# --- КЛАСС ДЕКОРА (МЕБЕЛИ) ---
+class Furniture(Entity):
+    def __init__(self, position=(0,0,0), model='cube', scale=(1,1,1), is_anomaly=False):
+        super().__init__(
+            model=model,
+            position=position,
+            scale=scale,
+            collider='box',
+            color=color.white
+        )
+        self.is_anomaly = is_anomaly
+        self.description = "Обычный предмет"
+
+    def interact(self):
+        if self.is_anomaly:
+            print("О НЕТ! Это аномалия!")
+            self.shake() # Предмет начинает трястись
+            self.color = color.red
+        else:
+            print("Это просто мебель.")
+
+# --- СОЗДАЕМ ДОМ ---
+ground = Entity(model='plane', collider='box', scale=64, texture='white_cube', color=color.gray)
+
+# Пример мебели
+table = Furniture(position=(2, 0.5, 3), scale=(2, 1, 1), model='cube')
+table.description = "Стол"
+
+cursed_chair = Furniture(position=(-2, 0.5, 3), scale=(0.5, 1, 0.5), is_anomaly=True)
+cursed_chair.description = "Странный стул"
+
+# --- ИГРОВОЙ ЦИКЛ ---
 def update():
-    global game_minutes, game_hours
-    
-    # Каждые 2 секунды реального времени прибавляем 1 игровую минуту
-    game_minutes += time.dt / 2
-    
-    if game_minutes >= 60:
-        game_minutes = 0
-        game_hours += 1
-        
-    # Отображение времени
-    time_text.text = f"{int(game_hours):02d}:{int(game_minutes):02d}"
-    
-    # Условие победы
-    if game_hours >= 6:
-        time_text.text = "6:00 - ТЫ ВЫЖИЛ!"
-        time_text.color = color.green
-        application.pause()
+    # Проверка взаимодействия (куда смотрит игрок)
+    if mouse.hovered_entity and isinstance(mouse.hovered_entity, Furniture):
+        interact_text.text = f"Нажмите [E] чтобы изучить: {mouse.hovered_entity.description}"
+    else:
+        interact_text.text = ""
 
-# Включение/выключение фонарика на клавишу 'f'
 def input(key):
+    # 1. Включение/выключение фонарика
     if key == 'f':
         flashlight.enabled = not flashlight.enabled
+        # Звук щелчка можно добавить тут: Audio('click.wav')
+    
+    # 2. Взаимодействие
+    if key == 'e':
+        if mouse.hovered_entity and hasattr(mouse.hovered_entity, 'interact'):
+            mouse.hovered_entity.interact()
 
 app.run()
-
